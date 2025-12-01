@@ -7,7 +7,8 @@ from pydantic import BaseModel
 
 app = FastAPI()
 r = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
-VLLM_URL = "http://localhost:8000/v1/completions"
+# Switch to Chat Completions Endpoint
+VLLM_URL = "http://localhost:8000/v1/chat/completions"
 
 # Configuration from Environment
 OUTPUT_TOKENS = int(os.getenv("OUTPUT_TOKENS", 500))
@@ -19,17 +20,27 @@ class WorkerPayload(BaseModel):
 @app.post("/invoke")
 async def invoke(payload: WorkerPayload):
     print(f"Worker received job {payload.job_id}. Target Output: {OUTPUT_TOKENS} tokens.")
-    # 1. Start Inference Timer
     start_time = time.time()
     
-    # 2. Call vLLM
+    # Construct Chat Messages
+    messages = [
+        {
+            "role": "system",
+            "content": "You are a helpful assistant designed to extract structured data from documents."
+        },
+        {
+            "role": "user",
+            "content": f"Please extract the invoice number and invoice date from the following document text: {payload.prompt}"
+        }
+    ]
+
     vllm_payload = {
         "model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
-        "prompt": payload.prompt,
+        "messages": messages,
         "max_tokens": OUTPUT_TOKENS,
-        "min_tokens": OUTPUT_TOKENS,
-        "ignore_eos": True,
-        "temperature": 0.7
+        # "min_tokens": OUTPUT_TOKENS, # min_tokens not always supported in chat API on all vllm versions, checking support
+        "temperature": 0.7,
+        "ignore_eos": True
     }
     
     generated_text = ""
@@ -38,20 +49,19 @@ async def invoke(payload: WorkerPayload):
         response.raise_for_status()
         response_json = response.json()
         
-        # Log token usage if available
         if 'usage' in response_json:
              print(f"Token Usage: {response_json['usage']}")
         
-        generated_text = response_json['choices'][0]['text']
+        generated_text = response_json['choices'][0]['message']['content']
     except Exception as e:
         print(f"vLLM Error: {e}")
+        if 'response' in locals():
+            print(f"Response Body: {response.text}")
         generated_text = f"Error: {str(e)}"
 
-    # 3. Stop Inference Timer
     end_time = time.time()
     inference_time = end_time - start_time
     
-    # 4. Store Result in Redis
     output_len = len(generated_text)
     final_result = f"Inference Time: {inference_time:.4f}s | Output Length: {output_len} chars"
     r.set(payload.job_id, final_result)

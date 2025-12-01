@@ -23,7 +23,7 @@ sudo apt-get install -y -qq redis-server python3-pip curl netcat-openbsd
 
 echo "[+] Installing Python libraries..."
 sudo python3 -m pip install --upgrade pip --break-system-packages || sudo python3 -m pip install --upgrade pip
-sudo python3 -m pip install fastapi uvicorn redis requests --break-system-packages || sudo python3 -m pip install fastapi uvicorn redis requests
+sudo python3 -m pip install fastapi uvicorn redis requests pypdf reportlab python-multipart --break-system-packages || sudo python3 -m pip install fastapi uvicorn redis requests pypdf reportlab python-multipart
 
 # 2. Start Redis Server
 if ! sudo lsof -i:$REDIS_PORT -t >/dev/null; then
@@ -82,11 +82,10 @@ if pgrep -f "uvicorn ingestion_server:app" > /dev/null; then
     echo "[+] Ingestion Server is already running."
 else
     echo "[+] Starting Ingestion Server (Port 80)..."
-    sudo uvicorn ingestion_server:app --host 0.0.0.0 --port 80 --reload > ingestion.log 2>&1 &
+    nohup sudo uvicorn ingestion_server:app --host 0.0.0.0 --port 80 --reload > ingestion.log 2>&1 &
 fi
 
 # 2. Start Internal Worker (Port 8001)
-# Note: We export the vars so the background process inherits them
 if pgrep -f "uvicorn fastapi_server:app" > /dev/null; then
     echo "[+] Internal Worker is already running. (Restarting to apply new config)..."
     pkill -f "uvicorn fastapi_server:app"
@@ -95,14 +94,14 @@ fi
 
 echo "[+] Starting Internal Worker API (Port 8001)..."
 export OUTPUT_TOKENS
-uvicorn fastapi_server:app --host 0.0.0.0 --port 8001 --reload > worker.log 2>&1 &
+nohup uvicorn fastapi_server:app --host 0.0.0.0 --port 8001 --reload > worker.log 2>&1 &
 
 # 3. Start Proxy
 if pgrep -f "python3 proxy.py" > /dev/null; then
     echo "[+] Proxy Service is already running."
 else
     echo "[+] Starting Proxy Service..."
-    python3 proxy.py > proxy.log 2>&1 &
+    nohup python3 proxy.py > proxy.log 2>&1 &
 fi
 
 echo "[+] Waiting 5s for services to stabilize..."
