@@ -1,0 +1,9 @@
+INFO:     Will watch for changes in these directories: ['/home/brathinam_google_com/llm_dist_benchmark']
+INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
+INFO:     Started reloader process [70829] using StatReload
+INFO:     Started server process [70836]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+Worker received job 2cd71551-eaf6-4b67-b495-ddd58c600a56. Target Output: 500 tokens.
+Token Usage: {'prompt_tokens': 2006, 'total_tokens': 2506, 'completion_tokens': 500, 'prompt_tokens_details': None}
+INFO:     127.0.0.1:56664 - "POST /invoke HTTP/1.1" 200 OK
